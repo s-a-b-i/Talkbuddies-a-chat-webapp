@@ -3,12 +3,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const DB_NAME = process.env.DB_NAME;
 
 const connectDB = async () => {
   try {
     const connection = await mongoose.connect(
-      `${process.env.MONGO_URI}/${DB_NAME}` // Corrected the template literal usage
+      `${process.env.MONGO_URI}/${process.env.DB_NAME}` // Corrected the template literal usage
     );
     console.log(`MongoDB connected: ${connection.connection.host}`);
   } catch (error) {
