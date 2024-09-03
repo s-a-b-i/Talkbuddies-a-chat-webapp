@@ -36,7 +36,7 @@ export const login = asynchandler(async (req, res) => {
   user.lockUntil = null;
   await user.save();
 
-  const { accessToken, refreshToken } = await generateTokens(user._id);
+  const { accessToken, refreshToken } = await generateTokens(user);
 
   const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
 

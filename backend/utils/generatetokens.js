@@ -14,10 +14,19 @@ const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
 const MAX_REFRESH_TOKENS = 5; // Maximum number of refresh tokens per user
 
 // Generate Access Token
-const generateAccessToken = (userId) => {
-  return jwt.sign({ id: userId }, ACCESS_TOKEN_SECRET, {
-    expiresIn: ACCESS_TOKEN_EXPIRY,
-  });
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    { 
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
+    }, 
+    ACCESS_TOKEN_SECRET, 
+    {
+      expiresIn: ACCESS_TOKEN_EXPIRY,
+    }
+  );
 };
 
 // Generate and Save Refresh Token
@@ -42,9 +51,9 @@ const generateRefreshToken = async (userId) => {
 };
 
 // Generate Both Tokens
-const generateTokens = async (userId) => {
-  const accessToken = generateAccessToken(userId);
-  const refreshToken = await generateRefreshToken(userId);
+const generateTokens = async (user) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = await generateRefreshToken(user._id);
   
   return { accessToken, refreshToken };
 };

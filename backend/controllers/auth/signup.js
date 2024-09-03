@@ -25,7 +25,7 @@ export const signup = asynchandler(async (req, res) => {
     lastName
   });
 
-  const { accessToken, refreshToken } = await generateTokens(user._id);
+  const { accessToken, refreshToken } = await generateTokens(user);
 
   const createdUser = await User.findById(user._id).select("-password -refreshTokens");
 
