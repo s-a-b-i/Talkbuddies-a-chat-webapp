@@ -7,6 +7,9 @@ import cors from 'cors';
 // Import cookie-parser to parse cookies in requests
 import cookieParser from 'cookie-parser';
 
+//import routes
+import { authRouter } from './routes/Auth.routes.js';
+
 // Create an instance of an Express application
 const app = express();
 
@@ -27,6 +30,8 @@ app.use(express.static('public'));
 
 // Enable cookie parsing to access cookies in requests
 app.use(cookieParser());
+
+app.use('api/v1/auth' , authRouter)
 
 
 
