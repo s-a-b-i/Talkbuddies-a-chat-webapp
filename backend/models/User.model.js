@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema(
       type: Number,
       required: false,
     },
-    profile: {
+    profileSetup: {
       type: String,
       required: false,
     },

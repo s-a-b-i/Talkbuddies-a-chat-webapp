@@ -31,7 +31,15 @@ app.use(express.static('public'));
 // Enable cookie parsing to access cookies in requests
 app.use(cookieParser());
 
-app.use('api/v1/auth' , authRouter)
+
+// Add this middleware before your routes
+app.use((req, res, next) => {
+    console.log(`Incoming request: ${req.method} ${req.url}`);
+    next();
+});
+
+
+app.use('/api/v1/auth' , authRouter)
 
 
 

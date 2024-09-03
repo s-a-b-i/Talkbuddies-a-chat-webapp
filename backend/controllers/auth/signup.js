@@ -3,13 +3,14 @@
 import User from '../../models/User.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { asynchandler } from '../../utils/asynchandler.js';
+import { ApiResponse } from '../../utils/ApiResponse.js'
 import { generateTokens, revokeRefreshToken } from '../../utils/generatetokens.js';
 
 export const signup = asynchandler(async (req, res) => {
-  const { email, password, firstName, lastName } = req.body;
+  const { email, password, firstName, lastName , profileSetup } = req.body;
 
-  if (!email || !password) {
-    throw new ApiError(400, "Email and password are required");
+  if (!email || !password || !firstName || !lastName) {
+    throw new ApiError(400, "Email, password, first name, and last name are required");
   }
 
   const existingUser = await User.findOne({ email });
@@ -22,21 +23,23 @@ export const signup = asynchandler(async (req, res) => {
     email,
     password,
     firstName,
-    lastName
+    lastName,
+    profileSetup
   });
 
   const { accessToken, refreshToken } = await generateTokens(user);
 
   const createdUser = await User.findById(user._id).select("-password -refreshTokens");
 
-  res.cookie("refreshToken", refreshToken, {
+  const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production"
-  });
+    secure: process.env.NODE_ENV === "production",
+    sameSite: 'strict'
+  };
 
-  return res.status(201).json({
-    success: true,
-    user: createdUser,
-    accessToken
-  });
+  res
+    .cookie("accessToken", accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 })
+    .cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 })
+    .status(201)
+    .json(new ApiResponse(201, { user: createdUser }, "User registered successfully"));
 });

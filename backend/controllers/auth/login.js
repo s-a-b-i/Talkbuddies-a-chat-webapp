@@ -1,11 +1,8 @@
-// controllers/auth.controller.js
-
 import User from '../../models/User.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { asynchandler } from '../../utils/asynchandler.js';
-import { generateTokens, revokeRefreshToken } from '../../utils/generatetokens.js';
-
-
+import { ApiResponse } from '../../utils/ApiResponse.js';
+import { generateTokens } from '../../utils/generatetokens.js';
 
 export const login = asynchandler(async (req, res) => {
   const { email, password } = req.body;
@@ -38,17 +35,32 @@ export const login = asynchandler(async (req, res) => {
 
   const { accessToken, refreshToken } = await generateTokens(user);
 
+  // Options for setting cookies
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Ensure cookies are sent over HTTPS in production
+    sameSite: 'strict', // Helps prevent CSRF attacks
+    maxAge: 15 * 60 * 1000 // Access token cookie expiration time (15 minutes)
+  };
+
+  // Respond with cookies and user data
   const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
 
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production"
-  });
-
-  return res.status(200).json({
-    success: true,
-    user: loggedInUser,
-    accessToken
-  });
+  res
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000 // Refresh token cookie expiration time (7 days)
+    })
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedInUser,
+          accessToken,
+          refreshToken,
+        },
+        "User logged in successfully"
+      )
+    );
 });
-
