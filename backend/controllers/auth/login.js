@@ -1,5 +1,6 @@
 import User from "../../models/User.model.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asynchandler } from "../../utils/asynchandler.js";
 import { generateTokens, revokeRefreshToken } from "../../utils/generatetokens.js";
 import { validateEmail, validatePassword } from "../../utils/validators.js";
@@ -59,18 +60,20 @@ export const login = asynchandler(async (req, res) => {
   const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
 
   res
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
-    .json({
-      status: 200,
-      data: {
+  .cookie("accessToken", accessToken, cookieOptions)
+  .cookie("refreshToken", refreshToken, {
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+  })
+  .status(201)
+  .json(
+    new ApiResponse(
+      200,
+      {
         user: loggedInUser,
-        accessToken,
-        refreshToken,
       },
-      message: "User logged in successfully",
-    });
+      "User logged in successfully"
+    )
+  );
+
 });
