@@ -1,18 +1,21 @@
-import User from '../../models/User.model.js';
-import { ApiError } from '../../utils/ApiError.js';
-import { asynchandler } from '../../utils/asynchandler.js';
-import { ApiResponse } from '../../utils/ApiResponse.js';
-import { generateTokens } from '../../utils/generatetokens.js';
+import User from "../../models/User.model.js";
+import { ApiError } from "../../utils/ApiError.js";
+import { asynchandler } from "../../utils/asynchandler.js";
+import { generateTokens, revokeRefreshToken } from "../../utils/generatetokens.js";
+import { validateEmail, validatePassword } from "../../utils/validators.js";
+import speakeasy from "speakeasy";
 
 export const login = asynchandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, otp, deviceFingerprint } = req.body;
 
-  if (!email || !password) {
-    throw new ApiError(400, "Email and password are required");
+  if (!email || !validateEmail(email)) {
+    throw new ApiError(400, "Valid email is required");
+  }
+  if (!password || !validatePassword(password)) {
+    throw new ApiError(400, "Valid password is required");
   }
 
   const user = await User.findOne({ email });
-
   if (!user) {
     throw new ApiError(401, "Invalid credentials");
   }
@@ -22,45 +25,52 @@ export const login = asynchandler(async (req, res) => {
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
-
   if (!isPasswordValid) {
     await user.incrementLoginAttempts();
     throw new ApiError(401, "Invalid credentials");
   }
 
-  // Reset login attempts on successful login
+  // Check MFA if enabled
+  if (user.mfaEnabled) {
+    const verified = speakeasy.totp.verify({
+      secret: user.mfaSecret,
+      encoding: "base32",
+      token: otp,
+    });
+
+    if (!verified) {
+      throw new ApiError(401, "Invalid OTP");
+    }
+  }
+
   user.loginAttempts = 0;
   user.lockUntil = null;
   await user.save();
 
-  const { accessToken, refreshToken } = await generateTokens(user);
+  const { accessToken, refreshToken } = await generateTokens(user, deviceFingerprint);
 
-  // Options for setting cookies
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Ensure cookies are sent over HTTPS in production
-    sameSite: 'strict', // Helps prevent CSRF attacks
-    maxAge: 15 * 60 * 1000 // Access token cookie expiration time (15 minutes)
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 15 * 60 * 1000,
   };
 
-  // Respond with cookies and user data
   const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
 
   res
     .cookie("accessToken", accessToken, cookieOptions)
     .cookie("refreshToken", refreshToken, {
       ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // Refresh token cookie expiration time (7 days)
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     })
-    .json(
-      new ApiResponse(
-        200,
-        {
-          user: loggedInUser,
-          accessToken,
-          refreshToken,
-        },
-        "User logged in successfully"
-      )
-    );
+    .json({
+      status: 200,
+      data: {
+        user: loggedInUser,
+        accessToken,
+        refreshToken,
+      },
+      message: "User logged in successfully",
+    });
 });

@@ -1,47 +1,30 @@
-// Import the Express framework
-import express from 'express';
+import express from "express";
+import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+import { authRouter } from "./routes/Auth.routes.js";
+import { generalLimiter } from "./middlewares/rateLimiter.js";
+import { csrfProtection } from "./middlewares/csrfProtection.js";
+import { securityHeaders } from "./middlewares/securityHeaders.js";
 
-// Import CORS middleware for handling cross-origin requests
-import cors from 'cors';
-
-// Import cookie-parser to parse cookies in requests
-import cookieParser from 'cookie-parser';
-
-//import routes
-import { authRouter } from './routes/Auth.routes.js';
-
-// Create an instance of an Express application
+dotenv.config();
 const app = express();
 
-// Allow requests from a specific origin (set in environment variables) and enable sending cookies and credentials with requests
-app.use(cors({
-    origin: process.env.CORS_ORIGIN,    
-    credentials: true                   
-}));
-
-// Parse incoming JSON requests and limit the size to 16kb
-app.use(express.json({limit: '16kb'}));
-
-// Parse URL-encoded data (form data), allow nested objects, and limit size to 16kb
-app.use(express.urlencoded({extended : true, limit : '16kb'}));
-
-// Serve static files (e.g., HTML, CSS, JS) from the 'public' directory
-app.use(express.static('public'));
-
-// Enable cookie parsing to access cookies in requests
 app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+app.use(generalLimiter); // Apply general rate limits
+app.use(securityHeaders); // Apply security headers
 
-// Add this middleware before your routes
-app.use((req, res, next) => {
-    console.log(`Incoming request: ${req.method} ${req.url}`);
-    next();
+// Use CSRF protection globally
+app.use(csrfProtection);
+
+app.use("/auth", authRouter);
+
+app.listen(process.env.PORT || 5000, () => {
+  console.log(`Server is running on port ${process.env.PORT || 5000}`);
 });
 
 
-app.use('/api/v1/auth' , authRouter)
 
-
-
-// Export the Express app for use in other files
-export { app };
+export {app}

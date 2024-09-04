@@ -1,16 +1,22 @@
-// controllers/auth.controller.js
-
 import User from '../../models/User.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { asynchandler } from '../../utils/asynchandler.js';
-import { ApiResponse } from '../../utils/ApiResponse.js'
+import { ApiResponse } from '../../utils/ApiResponse.js';
 import { generateTokens, revokeRefreshToken } from '../../utils/generatetokens.js';
+import { validateEmail, validatePassword } from '../../utils/validators.js';
 
 export const signup = asynchandler(async (req, res) => {
-  const { email, password, firstName, lastName , profileSetup } = req.body;
+  const { email, password, firstName, lastName, profileSetup } = req.body;
 
-  if (!email || !password || !firstName || !lastName) {
-    throw new ApiError(400, "Email, password, first name, and last name are required");
+  // Input Validation
+  if (!email || !validateEmail(email)) {
+    throw new ApiError(400, "Valid email is required");
+  }
+  if (!password || !validatePassword(password)) {
+    throw new ApiError(400, "Valid password is required");
+  }
+  if (!firstName || !lastName) {
+    throw new ApiError(400, "First name and last name are required");
   }
 
   const existingUser = await User.findOne({ email });
@@ -24,7 +30,7 @@ export const signup = asynchandler(async (req, res) => {
     password,
     firstName,
     lastName,
-    profileSetup
+    profileSetup,
   });
 
   const { accessToken, refreshToken } = await generateTokens(user);
@@ -34,7 +40,7 @@ export const signup = asynchandler(async (req, res) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: 'strict'
+    sameSite: 'strict',
   };
 
   res
