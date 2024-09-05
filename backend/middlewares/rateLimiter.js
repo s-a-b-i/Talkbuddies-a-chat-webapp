@@ -4,6 +4,7 @@ import { rateLimit } from 'express-rate-limit';
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Max 5 login attempts
+  keyGenerator: (req) => req.ip, // Rate limit by IP address
   message: "Too many login attempts, please try again after 15 minutes.",
   standardHeaders: true,
   legacyHeaders: false,

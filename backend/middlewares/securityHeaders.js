@@ -5,7 +5,7 @@ export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'nonce-<random>'"], // Restrict inline scripts
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
