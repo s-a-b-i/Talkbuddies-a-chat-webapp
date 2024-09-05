@@ -24,10 +24,10 @@ const generateAccessToken = (user) => {
   );
 };
 
-const generateRefreshToken = async (userId, deviceFingerprint) => {
-  const refreshTokenId = crypto.randomBytes(16).toString("hex");
+const generateRefreshToken = async (userId) => {
+  const refreshTokenId = crypto.randomBytes(16).toString("hex"); // Unique token ID
   const refreshToken = jwt.sign(
-    { id: userId, tokenId: refreshTokenId },
+    { id: userId, tokenId: refreshTokenId }, // Embed tokenId in the JWT payload
     REFRESH_TOKEN_SECRET,
     { expiresIn: "7d" }
   );
@@ -37,7 +37,7 @@ const generateRefreshToken = async (userId, deviceFingerprint) => {
     {
       $push: {
         refreshTokens: {
-          $each: [{ token: refreshToken, tokenId: refreshTokenId, createdAt: new Date(), deviceFingerprint }],
+          $each: [{ tokenId: refreshTokenId, createdAt: new Date() }], // Only store the tokenId
           $sort: { createdAt: -1 },
           $slice: MAX_REFRESH_TOKENS,
         },
@@ -49,6 +49,7 @@ const generateRefreshToken = async (userId, deviceFingerprint) => {
   return refreshToken;
 };
 
+
 const generateTokens = async (user) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = await generateRefreshToken(user._id);
@@ -56,11 +57,12 @@ const generateTokens = async (user) => {
   return { accessToken, refreshToken };
 };
 
-const revokeRefreshToken = async (userId, refreshToken) => {
+const revokeRefreshToken = async (userId, tokenId) => {
   await User.findByIdAndUpdate(userId, {
-    $pull: { refreshTokens: { token: refreshToken } },
+    $pull: { refreshTokens: { tokenId: tokenId } }, // Remove by tokenId
   });
 };
+
 
 const cleanupOldTokens = async () => {
   const currentDate = new Date();

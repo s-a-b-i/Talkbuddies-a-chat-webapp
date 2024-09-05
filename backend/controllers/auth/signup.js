@@ -6,25 +6,32 @@ import { generateTokens, revokeRefreshToken } from '../../utils/generatetokens.j
 import { validateEmail, validatePassword } from '../../utils/validators.js';
 
 export const signup = asynchandler(async (req, res) => {
+  console.log("Signup process started");
   const { email, password, firstName, lastName, profileSetup } = req.body;
 
   // Input Validation
   if (!email || !validateEmail(email)) {
+    console.log("Invalid email provided:", email);
     throw new ApiError(400, "Valid email is required");
   }
   if (!password || !validatePassword(password)) {
+    console.log("Invalid password provided");
     throw new ApiError(400, "Valid password is required");
   }
   if (!firstName || !lastName) {
+    console.log("Missing first name or last name");
     throw new ApiError(400, "First name and last name are required");
   }
 
+  console.log("Checking for existing user with email:", email);
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
+    console.log("User already exists with email:", email);
     throw new ApiError(409, "User with this email already exists");
   }
 
+  console.log("Creating new user");
   const user = await User.create({
     email,
     password,
@@ -33,8 +40,10 @@ export const signup = asynchandler(async (req, res) => {
     profileSetup,
   });
 
+  console.log("Generating tokens for new user");
   const { accessToken, refreshToken } = await generateTokens(user);
 
+  console.log("Fetching created user data");
   const createdUser = await User.findById(user._id).select("-password -refreshTokens");
 
   const cookieOptions = {
@@ -43,6 +52,7 @@ export const signup = asynchandler(async (req, res) => {
     sameSite: 'strict',
   };
 
+  console.log("User registration successful, ID:", user._id);
   res
     .cookie("accessToken", accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 })
     .cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 })
