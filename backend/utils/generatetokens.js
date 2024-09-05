@@ -49,7 +49,7 @@ const generateRefreshToken = async (userId, deviceFingerprint) => {
   return refreshToken;
 };
 
-const generateTokens = async (user, deviceFingerprint) => {
+const generateTokens = async (user) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = await generateRefreshToken(user._id);
 
