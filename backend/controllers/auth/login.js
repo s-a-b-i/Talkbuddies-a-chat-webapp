@@ -2,12 +2,11 @@ import User from "../../models/User.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asynchandler } from "../../utils/asynchandler.js";
-import { generateTokens, revokeRefreshToken } from "../../utils/generatetokens.js";
+import { generateTokens } from "../../utils/generatetokens.js";
 import { validateEmail, validatePassword } from "../../utils/validators.js";
-import speakeasy from "speakeasy";
 
 export const login = asynchandler(async (req, res) => {
-  const { email, password, otp, deviceFingerprint } = req.body;
+  const { email, password } = req.body;
 
   if (!email || !validateEmail(email)) {
     throw new ApiError(400, "Valid email is required");
@@ -16,7 +15,7 @@ export const login = asynchandler(async (req, res) => {
     throw new ApiError(400, "Valid password is required");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+password");
   if (!user) {
     throw new ApiError(401, "Invalid credentials");
   }
@@ -31,49 +30,23 @@ export const login = asynchandler(async (req, res) => {
     throw new ApiError(401, "Invalid credentials");
   }
 
-  // Check MFA if enabled
-  if (user.mfaEnabled) {
-    const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
-      encoding: "base32",
-      token: otp,
-    });
-
-    if (!verified) {
-      throw new ApiError(401, "Invalid OTP");
-    }
-  }
-
   user.loginAttempts = 0;
   user.lockUntil = null;
   await user.save();
 
-  const { accessToken, refreshToken } = await generateTokens(user, deviceFingerprint);
+  const { accessToken, refreshToken } = await generateTokens(user);
 
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 15 * 60 * 1000,
   };
 
   const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
 
   res
-  .cookie("accessToken", accessToken, cookieOptions)
-  .cookie("refreshToken", refreshToken, {
-    ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
-  })
-  .status(201)
-  .json(
-    new ApiResponse(
-      200,
-      {
-        user: loggedInUser,
-      },
-      "User logged in successfully"
-    )
-  );
-
+    .cookie("accessToken", accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 })
+    .cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 })
+    .status(200)
+    .json(new ApiResponse(200, { user: loggedInUser }, "User logged in successfully"));
 });

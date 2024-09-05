@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import passwordComplexity from "joi-password-complexity";
 
 const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_TIME = 15 * 60 * 1000;
+const LOCK_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 const userSchema = new mongoose.Schema(
   {
@@ -11,13 +10,24 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Email is required"],
       unique: true,
+      trim: true,
+      lowercase: true,
     },
     password: {
       type: String,
-      required: true,
+      required: [true, "Password is required"],
+      select: false
     },
-    firstName: String,
-    lastName: String,
+    firstName: {
+      type: String,
+      required: [true, "First name is required"],
+      trim: true
+    },
+    lastName: {
+      type: String,
+      required: [true, "Last name is required"],
+      trim: true
+    },
     image: String,
     color: Number,
     profileSetup: String,
@@ -25,76 +35,55 @@ const userSchema = new mongoose.Schema(
       {
         token: String,
         tokenId: String,
-        createdAt: Date,
-        deviceFingerprint: String, // For token binding
-      },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
     ],
     loginAttempts: {
       type: Number,
       required: true,
-      default: 0,
+      default: 0
     },
-    lockUntil: Number,
-    mfaEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    mfaSecret: String, // Storing MFA secret key
+    lockUntil: Number
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
-// Password hashing and rehashing
+// Password hashing
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
-  const complexityOptions = {
-    min: 8,
-    max: 30,
-    lowerCase: 1,
-    upperCase: 1,
-    numeric: 1,
-    symbol: 1,
-  };
   
-  const { error } = passwordComplexity(complexityOptions).validate(this.password);
-  if (error) {
-    throw new Error("Password does not meet complexity requirements");
-  }
-
-  const salt = await bcrypt.genSalt(12); // Increased salt rounds for better security
+  const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Password verification
+// Password verification method
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// Login attempts and account locking
-userSchema.methods.incrementLoginAttempts = function (cb) {
+// Login attempts and account locking method
+userSchema.methods.incrementLoginAttempts = function () {
   if (this.lockUntil && this.lockUntil < Date.now()) {
-    return this.updateOne(
-      {
-        $set: { loginAttempts: 1 },
-        $unset: { lockUntil: 1 },
-      },
-      cb
-    );
+    return this.updateOne({
+      $set: { loginAttempts: 1 },
+      $unset: { lockUntil: 1 }
+    });
   }
-
-  let updates = { $inc: { loginAttempts: 1 } };
+  const updates = { $inc: { loginAttempts: 1 } };
   if (this.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS && !this.isLocked) {
     updates.$set = { lockUntil: Date.now() + LOCK_TIME };
   }
-  return this.updateOne(updates, cb);
+  return this.updateOne(updates);
 };
 
-// Account lock check
-userSchema.virtual("isLocked").get(function () {
+// Virtual property to check if the account is currently locked
+userSchema.virtual('isLocked').get(function() {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
