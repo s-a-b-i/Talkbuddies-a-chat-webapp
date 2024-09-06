@@ -1,9 +1,12 @@
+// controllers/auth/signup.js
+
 import User from '../../models/User.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { asynchandler } from '../../utils/asynchandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
-import { generateTokens, revokeRefreshToken } from '../../utils/generatetokens.js';
+import { generateTokens } from '../../utils/generatetokens.js';
 import { validateEmail, validatePassword } from '../../utils/validators.js';
+import { sendWelcomeEmail } from '../../services/emailService.js';
 
 export const signup = asynchandler(async (req, res) => {
   console.log("Signup process started");
@@ -51,6 +54,15 @@ export const signup = asynchandler(async (req, res) => {
     secure: process.env.NODE_ENV === "production",
     sameSite: 'strict',
   };
+
+  // Send welcome email
+  try {
+    await sendWelcomeEmail(user);
+    console.log("Welcome email sent successfully");
+  } catch (error) {
+    console.error("Error sending welcome email:", error);
+    // Don't throw an error here, as we still want to complete the signup process
+  }
 
   console.log("User registration successful, ID:", user._id);
   res

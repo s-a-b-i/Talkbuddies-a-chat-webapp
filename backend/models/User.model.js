@@ -15,18 +15,20 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      select: false
+      required: function () {
+        return !this.googleId;
+      },
+      select: false,
     },
     firstName: {
       type: String,
       required: [true, "First name is required"],
-      trim: true
+      trim: true,
     },
     lastName: {
       type: String,
       required: [true, "Last name is required"],
-      trim: true
+      trim: true,
     },
     image: String,
     color: Number,
@@ -37,26 +39,32 @@ const userSchema = new mongoose.Schema(
         tokenId: String,
         createdAt: {
           type: Date,
-          default: Date.now
-        }
-      }
+          default: Date.now,
+        },
+      },
     ],
     loginAttempts: {
       type: Number,
       required: true,
-      default: 0
+      default: 0,
     },
-    lockUntil: Number
+    lockUntil: Number,
+    googleId: String, // Add this field for Google authentication
+    googleProfile: Object,
+    firstLogin: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
 // Password hashing
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  
+
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
@@ -72,7 +80,7 @@ userSchema.methods.incrementLoginAttempts = function () {
   if (this.lockUntil && this.lockUntil < Date.now()) {
     return this.updateOne({
       $set: { loginAttempts: 1 },
-      $unset: { lockUntil: 1 }
+      $unset: { lockUntil: 1 },
     });
   }
   const updates = { $inc: { loginAttempts: 1 } };
@@ -83,7 +91,7 @@ userSchema.methods.incrementLoginAttempts = function () {
 };
 
 // Virtual property to check if the account is currently locked
-userSchema.virtual('isLocked').get(function() {
+userSchema.virtual("isLocked").get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 

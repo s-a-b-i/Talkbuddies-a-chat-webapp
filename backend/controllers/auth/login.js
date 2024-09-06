@@ -1,14 +1,46 @@
+// controllers/auth/login.js
+
 import User from "../../models/User.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asynchandler } from "../../utils/asynchandler.js";
 import { generateTokens } from "../../utils/generatetokens.js";
 import { validateEmail, validatePassword } from "../../utils/validators.js";
+import { sendFirstLoginEmail, sendGoogleLoginEmail } from '../../services/emailService.js';
 
 export const login = asynchandler(async (req, res) => {
   console.log("Login attempt started");
   const { email, password } = req.body;
 
+  // Check if it's a Google login
+  if (req.user && req.user.googleId) {
+    console.log("Google login detected");
+    const user = req.user;
+    const { accessToken, refreshToken } = await generateTokens(user);
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    };
+
+    // Send Google login email
+    try {
+      await sendGoogleLoginEmail(user);
+      console.log("Google login email sent successfully");
+    } catch (error) {
+      console.error("Error sending Google login email:", error);
+    }
+
+    console.log("Google login successful for user:", user._id);
+    return res
+      .cookie("accessToken", accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 })
+      .cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 })
+      .status(200)
+      .json(new ApiResponse(200, { user }, "User logged in successfully"));
+  }
+
+  // Regular email login
   if (!email || !validateEmail(email)) {
     console.log("Invalid email provided");
     throw new ApiError(400, "Valid email is required");
@@ -41,6 +73,19 @@ export const login = asynchandler(async (req, res) => {
   console.log("Password validated successfully for user:", user._id);
   user.loginAttempts = 0;
   user.lockUntil = null;
+
+  // Check if it's the first login
+  if (user.firstLogin) {
+    user.firstLogin = false;
+    // Send first login email
+    try {
+      await sendFirstLoginEmail(user);
+      console.log("First login email sent successfully");
+    } catch (error) {
+      console.error("Error sending first login email:", error);
+    }
+  }
+
   await user.save();
   console.log("User login attempts reset");
 
