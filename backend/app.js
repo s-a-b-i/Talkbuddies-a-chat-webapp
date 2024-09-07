@@ -1,5 +1,3 @@
-// app.js
-
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -19,7 +17,7 @@ dotenv.config();
 // Enable CORS with credentials
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: 'http://localhost:5173',
     credentials: true,
   })
 );

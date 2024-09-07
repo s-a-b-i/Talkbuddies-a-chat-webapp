@@ -1,5 +1,3 @@
-// routes/Auth.routes.js
-
 import { Router } from "express";
 import passport from 'passport';
 import { login } from "../controllers/auth/login.js";
@@ -15,30 +13,45 @@ const authRouter = Router();
 authRouter.use(securityHeaders);
 
 authRouter.get("/csrf-token", csrfProtection, (req, res) => {
+  console.log("CSRF token requested");
   res.json({
     csrfToken: req.csrfToken(),
     cookies: req.cookies,
   });
 });
 
-authRouter.post("/signup", csrfProtection, signup);
-authRouter.post("/login", csrfProtection, loginLimiter, login);
-authRouter.post("/logout", csrfProtection, verifyJWT, logout);
+authRouter.post("/signup", csrfProtection, (req, res, next) => {
+  console.log("Signup attempt:", req.body.email);
+  signup(req, res, next);
+});
+
+authRouter.post("/login", csrfProtection, loginLimiter, (req, res, next) => {
+  console.log("Login attempt:", req.body.email);
+  login(req, res, next);
+});
+
+authRouter.post("/logout", csrfProtection, verifyJWT, (req, res, next) => {
+  console.log("Logout attempt");
+  logout(req, res, next);
+});
 
 // Google Auth Routes
-authRouter.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+authRouter.get('/google', (req, res, next) => {
+  console.log("Google auth initiated");
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    callbackURL: 'http://localhost:8000/api/v1/auth/google/callback'
+  })(req, res, next);
+});
 
 authRouter.get('/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login' }),
   (req, res) => {
-    // Send a JSON response with user data or tokens
-    const user = req.user;
-    res.status(200).json({
-      message: "Google login successful",
-      user: user,
-    });
+    res.redirect('http://localhost:5173/chat');
   }
 );
+
+
 
 
 export { authRouter };
