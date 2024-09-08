@@ -47,7 +47,7 @@ export const login = asynchandler(async (req, res) => {
   }
   if (!password || !validatePassword(password)) {
     console.log("Invalid password provided");
-    throw new ApiError(400, "Valid password is required");
+    throw new ApiError(400, " Password complexity not matched ");
   }
 
   console.log("Searching for user with email:", email);
