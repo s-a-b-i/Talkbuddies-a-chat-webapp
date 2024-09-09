@@ -1,107 +1,149 @@
+import React, { useState, useEffect } from 'react';
 import { Tabs } from "@/components/ui/tabs";
 import form1 from "@/assets/form1.png";
 import form2 from "@/assets/form2.png";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authApi } from "../../utils/apiService"; // Assuming authApi is exported correctly
+import { authApi } from "../../utils/apiService";
+import { toast } from "react-hot-toast";
+import { Eye, EyeOff } from "lucide-react";
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const Auth = () => {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const navigate = useNavigate(); // Initialize useNavigate
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [signupForm, setSignupForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [showPassword, setShowPassword] = useState({
+    login: false,
+    signup: false,
+    confirmPassword: false,
+  });
   const [activeTab, setActiveTab] = useState("login");
-  const [isGoogleLoggedIn, setIsGoogleLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchCsrfToken = async () => {
+      setIsLoading(true);
       try {
         await authApi.getCsrfToken();
-        console.log("CSRF token fetched successfully");
+        toast.success("CSRF token fetched successfully!", {
+          duration: 5000,
+          style: { border: '1px solid #4caf50' },
+          icon: '🔒',
+        });
       } catch (error) {
-        console.error("Failed to fetch CSRF token", error);
+        toast.error("Failed to fetch CSRF token.", {
+          duration: 5000,
+          icon: '⚠️',
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
-
     fetchCsrfToken();
   }, []);
 
+  const validatePassword = (password) => {
+    const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*]).{8,}$/;
+    return passwordRegex.test(password);
+  };
+
   const handleLogin = async () => {
-    console.log("Attempting login with email:", email);
+    if (!loginForm.email) {
+      toast.error("Please enter a valid email address.", { duration: 5000 });
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const response = await authApi.login({ email, password });
-      console.log("Login response:", response);
-      alert("Login successful!");
-      // Handle successful login (e.g., store token, redirect)
+      const response = await authApi.login(loginForm);
+      toast.success("Login successful!", { duration: 5000 });
+      navigate('/chat'); // Redirect to chat page after successful login
     } catch (error) {
-      console.error("Login failed", error);
-      if (error.response) {
-        console.log("Error response:", error.response.data);
-        alert(
-          `Login failed: ${error.response.data.message || "Please try again."}`
-        );
-      } else if (error.request) {
-        console.log("Error request:", error.request);
-        alert("No response from server. Please try again later.");
-      } else {
-        console.log("Error", error.message);
-        alert("An error occurred. Please try again.");
-      }
+      const errorMessage = error.response?.data?.message || "Incorrect email or password.";
+      toast.error(`Login failed: ${errorMessage}`, { duration: 5000 });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignup = async () => {
-    console.log("Attempting signup with email:", email);
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
+    if (!signupForm.email) {
+      toast.error("Please enter a valid email address.", { duration: 5000 });
       return;
     }
+
+    if (!signupForm.firstName || !signupForm.lastName) {
+      toast.error("First name and last name are required.", { duration: 5000 });
+      return;
+    }
+
+    if (signupForm.password !== signupForm.confirmPassword) {
+      toast.error("Passwords do not match!", { duration: 5000 });
+      return;
+    }
+
+    if (!validatePassword(signupForm.password)) {
+      toast.error("Password must include at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a special character.", { duration: 5000 });
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const response = await authApi.signup({
-        firstName,
-        lastName,
-        email,
-        password,
+      const response = await authApi.signup(signupForm);
+      toast.success("Signup successful! Please log in.", { duration: 5000 });
+      // Clear signup form
+      setSignupForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
       });
-      console.log("Signup response:", response);
-      alert("Signup successful! You can now login.");
+      // Switch to login tab
+      setActiveTab("login");
     } catch (error) {
-      console.error("Signup failed", error);
-      if (error.response) {
-        console.log("Error response:", error.response.data);
-        alert(
-          `Signup failed: ${error.response.data.message || "Please try again."}`
-        );
-      } else if (error.request) {
-        console.log("Error request:", error.request);
-        alert("No response from server. Please try again later.");
-      } else {
-        console.log("Error", error.message);
-        alert("An error occurred. Please try again.");
-      }
+      const errorMessage = error.response?.data?.message || "An account with this email already exists.";
+      toast.error(`Signup failed: ${errorMessage}`, { duration: 5000 });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    authApi.initiateGoogleAuth();
-  }
+    setIsLoading(true);
+    try {
+      authApi.initiateGoogleAuth();
+      toast.success("Redirecting to Google login...", { duration: 5000 });
+    } catch (error) {
+      toast.error("Google login failed.", { duration: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    
+  const togglePasswordVisibility = (field) => {
+    setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4">
+      <LoadingSpinner isLoading={isLoading} />
       <div className="w-full max-w-4xl bg-white text-opacity-90 shadow-2xl rounded-3xl overflow-hidden">
         <div className="grid grid-cols-1 xl:grid-cols-2">
           <div className="flex flex-col gap-6 p-6 lg:p-10">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-                  {" "}
-                  Welcome
-                </h1>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">Welcome</h1>
                 <img
                   src={form1}
                   alt="chatImage"
@@ -138,16 +180,25 @@ const Auth = () => {
                       placeholder="Email"
                       type="email"
                       className="rounded-full p-4 sm:p-5"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={loginForm.email}
+                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                     />
-                    <Input
-                      placeholder="Password"
-                      type="password"
-                      className="rounded-full p-4 sm:p-5"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        placeholder="Password"
+                        type={showPassword.login ? "text" : "password"}
+                        className="rounded-full p-4 sm:p-5 pr-10"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility('login')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword.login ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                     <Button
                       className="rounded-full p-4 sm:p-5"
                       onClick={handleLogin}
@@ -166,37 +217,55 @@ const Auth = () => {
                       placeholder="First Name"
                       type="text"
                       className="rounded-full p-4 sm:p-5"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      value={signupForm.firstName}
+                      onChange={(e) => setSignupForm({ ...signupForm, firstName: e.target.value })}
                     />
                     <Input
                       placeholder="Last Name"
                       type="text"
                       className="rounded-full p-4 sm:p-5"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      value={signupForm.lastName}
+                      onChange={(e) => setSignupForm({ ...signupForm, lastName: e.target.value })}
                     />
                     <Input
                       placeholder="Email"
                       type="email"
                       className="rounded-full p-4 sm:p-5"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={signupForm.email}
+                      onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
                     />
-                    <Input
-                      placeholder="Password"
-                      type="password"
-                      className="rounded-full p-4 sm:p-5"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Confirm Password"
-                      type="password"
-                      className="rounded-full p-4 sm:p-5"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        placeholder="Password"
+                        type={showPassword.signup ? "text" : "password"}
+                        className="rounded-full p-4 sm:p-5 pr-10"
+                        value={signupForm.password}
+                        onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility('signup')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword.signup ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        placeholder="Confirm Password"
+                        type={showPassword.confirmPassword ? "text" : "password"}
+                        className="rounded-full p-4 sm:p-5 pr-10"
+                        value={signupForm.confirmPassword}
+                        onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility('confirmPassword')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword.confirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                     <Button
                       className="rounded-full p-4 sm:p-5"
                       onClick={handleSignup}
