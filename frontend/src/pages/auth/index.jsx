@@ -10,9 +10,10 @@ import { toast } from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
-
+import { useAppStore } from "../../store/store";
 const Auth = () => {
   const navigate = useNavigate(); // Initialize useNavigate
+  const {setUserInfo} = useAppStore()
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({
     firstName: "",
@@ -65,6 +66,8 @@ const Auth = () => {
     setIsLoading(true);
     try {
       const response = await authApi.login(loginForm);
+      setUserInfo(response.data.data.user)
+      console.log("Updated user info:", useAppStore.getState().userInfo); // Add this line
       toast.success("Login successful!", { duration: 5000 });
       navigate('/chat'); // Redirect to chat page after successful login
     } catch (error) {
