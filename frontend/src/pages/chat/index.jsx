@@ -8,7 +8,7 @@ const Chat = () => {
     <div>
       Chat
       <div>Email: {userInfo?.email ? userInfo.email : "No email found"}</div>
-      <Link to="/profile">Go to Profile</Link> {/* Add link to /profile */}
+      <Link to="/profile">Go to Profile page</Link> {/* Add link to /profile */}
     </div>
   );
 };
